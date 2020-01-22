@@ -1,12 +1,9 @@
 import logging
 
+from telegram import ParseMode
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters
 from telegram.ext import Updater
-
-logging.basicConfig(format='%(asctime)s -TELEGRAM - %(levelname)s - %(message)s', level=logging.INFO)
-
-logging.info("Init ...")
 
 
 class Bot():
@@ -29,7 +26,6 @@ class Bot():
                                  text="Sorry, I didn't understand that: " + update.message.text)
 
     def init(self, TOKEN):
-        logging.info("Init Bot ...")
         self.updater = Updater(token=TOKEN, use_context=True)
         dispatcher = self.updater.dispatcher
 
@@ -38,6 +34,8 @@ class Bot():
 
         unknown_handler = MessageHandler(Filters.all, lambda update, context: self.cb_unknown(update, context))
         dispatcher.add_handler(unknown_handler)
+
+        logging.info("Telegram initialized.")
 
     def start(self):
         self.updater.start_polling()
@@ -53,3 +51,6 @@ class Bot():
         if not self.started:
             logging.warn("Idling, but Bot is not started.")
         self.updater.idle()
+
+    def sendMsgToOwner(self, msg):
+        self.updater.bot.send_message(chat_id=self.OWNERID, text=msg, parse_mode=ParseMode.MARKDOWN)
