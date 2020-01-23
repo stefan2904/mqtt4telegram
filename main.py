@@ -49,6 +49,8 @@ PASSWORD = os.getenv('MQTTPASSWORD')
 mqtt = Mqtt(BROKERHOST, BROKERPORT, USERNAME, PASSWORD)
 mqtt.setCallback(mqtt2telegram)
 
-mqtt2telegram('', 'Bot (re-)initialized!')
+mqtt2telegram('Status', 'Bot (re-)initialized!')
 
 mqtt.loop_forever()
+
+mqtt2telegram('Status', 'Bot shutdown ...')

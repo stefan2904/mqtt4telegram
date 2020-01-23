@@ -12,6 +12,7 @@ class Bot():
     def __init__(self, OWNERID):
         self.OWNERID = OWNERID
         self.started = False
+        self.hostname = socket.gethostname()
         logging.info("Telegram OWNERID: " + str(OWNERID))
 
     def isAdmin(self, ID):
@@ -20,9 +21,8 @@ class Bot():
         return ID == self.OWNERID
 
     def cb_start(self, update, context):
-        hostname = socket.gethostname()
         context.bot.send_message(chat_id=update.effective_chat.id,
-                                 text="I am alive at {}! And you are, {}!?".format(hostname,
+                                 text="I am alive at {}! And you are, {}!?".format(self.hostname,
                                                                                    str(update.effective_chat.id)))
         if self.isAdmin(update.effective_chat.id):
             context.bot.send_message(chat_id=update.effective_chat.id, text="You are this bots admin!")

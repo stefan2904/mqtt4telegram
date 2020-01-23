@@ -21,8 +21,10 @@ class Mqtt():
 
     def on_connect(self, client, userdata, flags, rc):
         logging.info("Connected with result code " + str(rc))
+        self.callback('MQTT Status', 'Connected to Broker!')
         if rc == 5:
             logging.error("Unauthenticated")
+            self.callback('MQTT Status', 'Unauthenticated')
             return
 
         self.client.subscribe('failcloud/#')
@@ -39,3 +41,6 @@ class Mqtt():
 
     def setCallback(self, cb):
         self.callback = cb
+
+    def disconnect(self):
+        self.client.disconnect()
