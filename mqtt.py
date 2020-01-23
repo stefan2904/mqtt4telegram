@@ -5,6 +5,8 @@ import paho.mqtt.client as mqtt
 
 class Mqtt():
     def __init__(self, host, port, username, password):
+        self.host = host
+        self.username = username
         self.client = mqtt.Client(client_id='mqtt4telegram')
         self.client.enable_logger()
 
@@ -21,7 +23,7 @@ class Mqtt():
 
     def on_connect(self, client, userdata, flags, rc):
         logging.info("Connected with result code " + str(rc))
-        self.callback('MQTT Status', 'Connected to Broker!')
+        self.callback('MQTT Status', 'Connected to Broker at {} as {}!'.format(self.host, self.username))
         if rc == 5:
             logging.error("Unauthenticated")
             self.callback('MQTT Status', 'Unauthenticated')

@@ -35,7 +35,7 @@ def mqtt2telegram(topic, payload):
     topic = topic.replace('_', ' ')
     payload = tryDecode(payload)
     msg = """*mqtt2telegram:* _{}_
-            {}
+{}
             """.format(topic, payload)
     logging.info(msg)
     bot.sendMsgToOwner(msg)
