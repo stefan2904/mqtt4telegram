@@ -25,7 +25,7 @@ class Mqtt():
             logging.error("Unauthenticated")
             return
 
-        self.client.subscribe('test/#')
+        self.client.subscribe('failcloud/#')
         # self.client.subscribe('$SYS/#')
 
     def on_message(self, client, userdata, msg):

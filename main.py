@@ -7,7 +7,7 @@ from mqtt import Mqtt
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-OWNERID = os.getenv('TELEGRAMOWNERID')
+OWNERID = int(os.getenv('TELEGRAMOWNERID'))
 TOKEN = os.getenv('TELEGRAMTOKEN')
 
 bot = Bot(OWNERID)
