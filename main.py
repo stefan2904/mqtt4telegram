@@ -25,7 +25,7 @@ def tryDecode(payload):
             retval += '\n' + k + ': ' + str(v)
         return retval
     except ValueError as e:
-        logging.info('could not decode JSON: ' + str(e))
+        logging.debug('could not decode JSON: ' + str(e))
         if type(payload) == bytes:
             return payload.decode('utf-8')
         return payload
