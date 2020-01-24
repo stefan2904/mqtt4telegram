@@ -7,17 +7,18 @@ class Mqtt():
     def __init__(self, host, port, username, password):
         self.host = host
         self.username = username
-        self.client = mqtt.Client(client_id='mqtt4telegram')
+        self.client = mqtt.Client(client_id='mqtt4telegram.' + username + '@' + host)
         self.client.enable_logger()
 
         self.client.on_connect = lambda client, userdata, flags, rc: self.on_connect(client, userdata, flags, rc)
         self.client.on_message = lambda client, userdata, msg: self.on_message(client, userdata, msg)
 
+        self.callback = lambda topic, payload: None
+        self.connected = False
+
         self.client.tls_set()
         self.client.username_pw_set(username, password)
         self.client.connect(host, port, 60)
-
-        self.callback = None
 
         logging.info("MQTT initialized.")
 
@@ -29,8 +30,9 @@ class Mqtt():
             self.callback('MQTT Status', 'Unauthenticated')
             return
 
-        self.client.subscribe('failcloud/#')
+        client.subscribe('failcloud/#')
         # self.client.subscribe('$SYS/#')
+        self.connected = True
 
     def on_message(self, client, userdata, msg):
         if self.callback is not None:
@@ -40,6 +42,23 @@ class Mqtt():
 
     def loop_forever(self):
         self.client.loop_forever()
+
+    def loop_start(self):
+        self.client.loop_start()
+
+    def loop_stop(self):
+        self.client.loop_stop()
+
+    def loop(self):
+        self.client.loop()
+
+    def waitForConnection(self):
+        while not self.connected:
+            self.loop()
+
+    def publish(self, topic, payload):
+        self.client.publish(topic, payload, 0)
+        logging.info('> Published: {}: {}'.format(topic, payload))
 
     def setCallback(self, cb):
         self.callback = cb
