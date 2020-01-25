@@ -1,4 +1,13 @@
 *.iml
 .idea/
+
 *.pyc
+__pycache__/
+
 *.env
+
+libcoap/
+tools/libcoap/
+*.m4
+tradfri_standalone_psk.conf
+router_devices.xml
