@@ -38,11 +38,11 @@ devices = [dev for dev in devices if dev.has_light_control]
 
 logging.info("Setup MQTT ...")
 
-mqtt = Mqtt(BROKERHOST, BROKERPORT, USERNAME, PASSWORD)
+mqtt = Mqtt(BROKERHOST, BROKERPORT, USERNAME, PASSWORD, topics=[])
 mqtt.setCallback(mqttCallback)
 mqtt.waitForConnection()
 
-mqtt.publish('failcloud/test', 'Hello from python script!')
+mqtt.publish('failcloud/tradfri', 'Hello from experiment.mqtt4tradfri python script!')
 
 
 def report(light):
