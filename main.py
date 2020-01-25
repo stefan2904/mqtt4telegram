@@ -34,7 +34,7 @@ def tryDecode(payload):
 def mqtt2telegram(topic, payload):
     topic = topic.replace('_', ' ')
     payload = tryDecode(payload)
-    msg = """*mqtt2telegram:* _{}_
+    msg = """<b>mqtt2telegram:</b> <i>{}</i>
 {}
             """.format(topic, payload)
     logging.info(msg)

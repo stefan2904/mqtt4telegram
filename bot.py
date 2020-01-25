@@ -80,4 +80,4 @@ class Bot():
         self.updater.idle()
 
     def sendMsgToOwner(self, msg):
-        self.updater.bot.send_message(chat_id=self.OWNERID, text=msg, parse_mode=ParseMode.MARKDOWN)
+        self.updater.bot.send_message(chat_id=self.OWNERID, text=msg, parse_mode=ParseMode.HTML)
