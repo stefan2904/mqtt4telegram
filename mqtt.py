@@ -8,7 +8,7 @@ class Mqtt():
         self.host = host
         self.username = username
         self.topics = topics
-        self.client = mqtt.Client(client_id='mqtt4telegram.' + username + '@' + host)
+        self.client = mqtt.Client(client_id='mqtt4telegram.' + self.username)
         self.client.enable_logger()
 
         self.client.on_connect = lambda client, userdata, flags, rc: self.on_connect(client, userdata, flags, rc)
@@ -26,14 +26,14 @@ class Mqtt():
     def on_connect(self, client, userdata, flags, rc):
         logging.info("Connected with result code " + str(rc))
         if self.onMessageCallback is not None:
-            self.callback('MQTT Status', 'Connected to Broker at {} as {}!'.format(self.host, self.username))
+            self.onMessageCallback('MQTT Status', 'Connected to Broker at {} as {}!'.format(self.host, self.username))
         if rc == 5:
             logging.error("Unauthenticated")
-            self.callback('MQTT Status', 'Unauthenticated')
+            self.onMessageCallback('MQTT Status', 'Unauthenticated')
             return
 
         for topic in self.topics:
-            client.subscribe(self.topics)
+            client.subscribe(topic)
             logging.info("Subscribed to {}".format(topic))
         # self.client.subscribe('$SYS/#')
         self.connected = True
