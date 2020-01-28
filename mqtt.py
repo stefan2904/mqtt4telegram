@@ -39,7 +39,7 @@ class Mqtt():
         self.connected = True
 
     def on_message(self, client, userdata, msg):
-        if self.onMessageCallback is not None:
+        if self.onMessageCallback is not None and not msg.retain:
             self.onMessageCallback(msg.topic, str(msg.payload, 'utf-8'))
         else:
             logging.info(msg.topic + ": " + str(msg.payload, 'utf-8'))
@@ -60,8 +60,8 @@ class Mqtt():
         while not self.connected:
             self.loop()
 
-    def publish(self, topic, payload):
-        self.client.publish(topic, payload, 0)
+    def publish(self, topic, payload, retain=False):
+        self.client.publish(topic, payload, qos=0, retain=retain)
         logging.info('> Published: {}: {}'.format(topic, payload))
 
     def setCallback(self, cb):
