@@ -20,10 +20,7 @@ bot.start()
 def tryDecode(payload):
     try:
         payload = json.loads(payload)
-        retval = ''
-        for k, v in payload.items():
-            retval += '\n' + k + ': ' + str(v) + '\n'
-        return retval
+        retval = json.dumps(payload, indent=2, sort_keys=True)
     except ValueError as e:
         logging.debug('could not decode JSON: ' + str(e))
         if type(payload) == bytes:
