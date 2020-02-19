@@ -22,7 +22,7 @@ def tryDecode(payload):
         payload = json.loads(payload)
         retval = ''
         for k, v in payload.items():
-            retval += '\n' + k + ': ' + str(v)
+            retval += '\n' + k + ': ' + str(v) + '\n'
         return retval
     except ValueError as e:
         logging.debug('could not decode JSON: ' + str(e))
@@ -31,9 +31,28 @@ def tryDecode(payload):
         return payload
 
 
+def filter_todoist(topic, payload):
+    # topic = 'failcloud/todoist/item:completed'
+    topics = topic.split('/')
+    action = topics[2].split(':')
+    return '{}: {}'.format(action[2], payload['item']['content'])
+
+
+def getFilter(topic):
+    topics = topic.split('/')
+    if topics[1] == 'todoist':
+        return filter_todoist
+    else:
+        return None
+
+
 def mqtt2telegram(topic, payload):
     topic = topic.replace('_', ' ')
-    payload = tryDecode(payload)
+    filter = getFilter(topic)
+    if filter is not None:
+        payload = filter(topic, payload)
+    else:
+        payload = tryDecode(payload)
     msg = """<b>mqtt2telegram:</b> <i>{}</i>
 {}
             """.format(topic, payload)
