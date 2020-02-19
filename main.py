@@ -31,8 +31,16 @@ def tryDecode(topic, payload):
 def parser_todoist(topic, payload):
     # topic = 'failcloud/todoist/item:completed'
     topics = topic.split('/')
-    action = topics[2].split(':')
-    return '{}: {}'.format(action[1], payload['item']['content'])
+    logging.debug('topics: ' + str(topics))
+
+    actions = topics[2].split(':')
+    logging.debug('actions: ' + str(actions))
+
+    action = actions[1] if len(actions) >= 2 else actions[0]
+    payload = json.loads(payload)
+    logging.debug('payload: ' + str(payload))
+
+    return '{}: {}'.format(action, payload['item']['content'])
 
 
 def getParser(topic):
@@ -47,9 +55,11 @@ def getParser(topic):
 
 
 def mqtt2telegram(topic, payload):
+    logging.debug('mqtt2telegram: ' + topic)
     topic = topic.replace('_', ' ')
     parser = getParser(topic)
     payload = parser(topic, payload)
+    logging.debug('Sending to Telegram ...')
     msg = """<b>mqtt2telegram:</b> <i>{}</i>
 {}
             """.format(topic, payload)
