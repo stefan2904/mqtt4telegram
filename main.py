@@ -28,24 +28,24 @@ def tryDecode(payload):
         return payload
 
 
-def filter_todoist(topic, payload):
+def parser_todoist(topic, payload):
     # topic = 'failcloud/todoist/item:completed'
     topics = topic.split('/')
     action = topics[2].split(':')
     return '{}: {}'.format(action[2], payload['item']['content'])
 
 
-def getFilter(topic):
+def getParser(topic):
     topics = topic.split('/')
     if topics[1] == 'todoist':
-        return filter_todoist
+        return parser_todoist
     else:
         return None
 
 
 def mqtt2telegram(topic, payload):
     topic = topic.replace('_', ' ')
-    filter = getFilter(topic)
+    filter = getParser(topic)
     if filter is not None:
         payload = filter(topic, payload)
     else:
