@@ -17,7 +17,7 @@ bot.start()
 
 # bot.idle()
 
-def tryDecode(payload):
+def tryDecode(topic, payload):
     try:
         payload = json.loads(payload)
         retval = json.dumps(payload, indent=2, sort_keys=True)
@@ -32,27 +32,24 @@ def parser_todoist(topic, payload):
     # topic = 'failcloud/todoist/item:completed'
     topics = topic.split('/')
     action = topics[2].split(':')
-    return '{}: {}'.format(action[2], payload['item']['content'])
+    return '{}: {}'.format(action[1], payload['item']['content'])
 
 
 def getParser(topic):
     topics = topic.split('/')
     if len(topics) <= 1:
-        return None
+        return tryDecode
 
     if topics[1] == 'todoist':
         return parser_todoist
     else:
-        return None
+        return tryDecode
 
 
 def mqtt2telegram(topic, payload):
     topic = topic.replace('_', ' ')
-    filter = getParser(topic)
-    if filter is not None:
-        payload = filter(topic, payload)
-    else:
-        payload = tryDecode(payload)
+    parser = getParser(topic)
+    payload = parser(topic, payload)
     msg = """<b>mqtt2telegram:</b> <i>{}</i>
 {}
             """.format(topic, payload)
