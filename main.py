@@ -37,6 +37,9 @@ def parser_todoist(topic, payload):
 
 def getParser(topic):
     topics = topic.split('/')
+    if len(topics) <= 1:
+        return None
+
     if topics[1] == 'todoist':
         return parser_todoist
     else:
