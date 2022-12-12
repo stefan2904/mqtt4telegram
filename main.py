@@ -7,25 +7,36 @@ from mqtt import Mqtt
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-OWNERID = int(os.getenv('TELEGRAMOWNERID'))
-TOKEN = os.getenv('TELEGRAMTOKEN')
 
-bot = Bot(OWNERID)
-bot.init(TOKEN)
-bot.start()
+if __name__ == '__main__':
+    OWNERID = int(os.getenv('TELEGRAMOWNERID'))
+    TOKEN = os.getenv('TELEGRAMTOKEN')
+
+    bot = Bot(OWNERID)
+    bot.init(TOKEN)
+    bot.start()
+    # bot.idle()
 
 
-# bot.idle()
-
-def tryDecode(topic, payload):
+def tryDecode(topic, payload, json_as_list=True):
     try:
         payload = json.loads(payload)
-        retval = json.dumps(payload, indent=2, sort_keys=True)
+        if not json_as_list:
+            return json.dumps(payload, indent=2, sort_keys=True)
+        else:
+            if type(payload) is dict:
+                # create flat key-value list based on dict (only works if depth<=1)
+                lines = ['- <b>{}</b>: {}'.format(key, value) for key, value in payload.items()]
+                return '\n'.join(lines)
+            elif type(payload) is list:
+                lines = ['- {}'.format(value) for value in payload]
+                return '\n'.join(lines)
+
     except ValueError as e:
         logging.debug('could not decode JSON: ' + str(e))
         if type(payload) == bytes:
             return payload.decode('utf-8')
-        return payload
+    return payload
 
 
 def parser_todoist(topic, payload):
@@ -67,16 +78,17 @@ def mqtt2telegram(topic, payload):
     bot.sendMsgToOwner(msg)
 
 
-BROKERHOST = os.getenv('MQTTHOST')
-BROKERPORT = int(os.getenv('MQTTPORT'))
-USERNAME = os.getenv('MQTTUSERNAME')
-PASSWORD = os.getenv('MQTTPASSWORD')
+if __name__ == '__main__':
+    BROKERHOST = os.getenv('MQTTHOST')
+    BROKERPORT = int(os.getenv('MQTTPORT'))
+    USERNAME = os.getenv('MQTTUSERNAME')
+    PASSWORD = os.getenv('MQTTPASSWORD')
 
-mqtt = Mqtt(BROKERHOST, BROKERPORT, USERNAME, PASSWORD)
-mqtt.setCallback(mqtt2telegram)
+    mqtt = Mqtt(BROKERHOST, BROKERPORT, USERNAME, PASSWORD)
+    mqtt.setCallback(mqtt2telegram)
 
-mqtt2telegram('Status', 'Bot (re-)initialized!')
+    mqtt2telegram('Status', 'Bot (re-)initialized!')
 
-mqtt.loop_forever()
+    mqtt.loop_forever()
 
-mqtt2telegram('Status', 'Bot shutdown ...')
+    mqtt2telegram('Status', 'Bot shutdown ...')
