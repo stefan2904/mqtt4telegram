@@ -1,5 +1,8 @@
 import asyncio
+from importlib import metadata
 import logging
+from pathlib import Path
+import re
 import socket
 import threading
 
@@ -25,6 +28,37 @@ class Bot():
         logging.debug("trusted:   {} ({})".format(type(self.OWNERID), self.OWNERID))
         return ID == self.OWNERID
 
+    async def _ensure_admin(self, update, context):
+        if self.isAdmin(update.effective_chat.id):
+            return True
+
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text="ERROR: You are not this bots admin!")
+        return False
+
+    def _get_dependency_versions(self):
+        requirements_path = Path(__file__).resolve().with_name('requirements.txt')
+        if not requirements_path.exists():
+            return None
+
+        dependencies = []
+        for raw_line in requirements_path.read_text(encoding='utf-8').splitlines():
+            requirement = raw_line.split('#', 1)[0].strip()
+            if not requirement:
+                continue
+
+            match = re.match(r'^([A-Za-z0-9_.-]+)', requirement)
+            if match is None:
+                continue
+
+            package_name = match.group(1)
+            try:
+                dependencies.append((package_name, metadata.version(package_name)))
+            except metadata.PackageNotFoundError:
+                dependencies.append((package_name, None))
+
+        return dependencies
+
     async def cb_start(self, update, context):
         await context.bot.send_message(chat_id=update.effective_chat.id,
                                        text="I am alive at {}! And you are, {}!?".format(self.hostname,
@@ -32,10 +66,42 @@ class Bot():
         if self.isAdmin(update.effective_chat.id):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="You are this bots admin!")
 
-    async def cb_mqtt(self, update, context):
-        if not self.isAdmin(update.effective_chat.id):
+    async def cb_help(self, update, context):
+        if not await self._ensure_admin(update, context):
+            return False
+
+        lines = [
+            "Available commands:",
+            "/start - Check bot status and your chat id.",
+            "/mqtt <topic> <payload> - Publish payload to an MQTT topic (not yet implemented).",
+            "/help - Show this help message.",
+            "/version - Show installed versions for dependencies in requirements.txt.",
+        ]
+        await context.bot.send_message(chat_id=update.effective_chat.id, text='\n'.join(lines))
+
+    async def cb_version(self, update, context):
+        if not await self._ensure_admin(update, context):
+            return False
+
+        dependencies = self._get_dependency_versions()
+        if dependencies is None:
             await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text="ERROR: You are not this bots admin!")
+                                           text='ERROR: requirements.txt not found.')
+            return False
+
+        if len(dependencies) == 0:
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text='No dependencies found in requirements.txt.')
+            return False
+
+        lines = ['Installed dependency versions (requirements.txt):']
+        for package_name, version in dependencies:
+            lines.append('- {}: {}'.format(package_name, version if version is not None else 'NOT INSTALLED'))
+
+        await context.bot.send_message(chat_id=update.effective_chat.id, text='\n'.join(lines))
+
+    async def cb_mqtt(self, update, context):
+        if not await self._ensure_admin(update, context):
             return False
 
         if len(context.args) < 2:
@@ -60,6 +126,8 @@ class Bot():
         self.application = ApplicationBuilder().token(TOKEN).build()
 
         self.application.add_handler(CommandHandler('start', self.cb_start))
+        self.application.add_handler(CommandHandler('help', self.cb_help))
+        self.application.add_handler(CommandHandler('version', self.cb_version))
         self.application.add_handler(CommandHandler('mqtt', self.cb_mqtt))
         self.application.add_handler(MessageHandler(filters.ALL, self.cb_unknown))
 

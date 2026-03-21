@@ -69,6 +69,62 @@ def test_cb_start_sends_only_greeting_for_non_owner():
     assert "I am alive at" in sender.messages[0]["text"]
 
 
+def test_cb_help_rejects_non_admin():
+    bot = Bot(OWNERID=42)
+    sender = SpySender()
+    update = make_update(7)
+    context = make_context(sender=sender)
+
+    result = run(bot.cb_help(update, context))
+
+    assert result is False
+    assert sender.messages[0]["text"] == "ERROR: You are not this bots admin!"
+
+
+def test_cb_help_lists_available_commands_for_admin():
+    bot = Bot(OWNERID=42)
+    sender = SpySender()
+    update = make_update(42)
+    context = make_context(sender=sender)
+
+    run(bot.cb_help(update, context))
+
+    message = sender.messages[0]["text"]
+    assert "Available commands:" in message
+    assert "/start" in message
+    assert "/mqtt" in message
+    assert "/help" in message
+    assert "/version" in message
+
+
+def test_cb_version_rejects_non_admin():
+    bot = Bot(OWNERID=42)
+    sender = SpySender()
+    update = make_update(7)
+    context = make_context(sender=sender)
+
+    result = run(bot.cb_version(update, context))
+
+    assert result is False
+    assert sender.messages[0]["text"] == "ERROR: You are not this bots admin!"
+
+
+def test_cb_version_lists_dependency_versions_for_admin(monkeypatch):
+    bot = Bot(OWNERID=42)
+    sender = SpySender()
+    update = make_update(42)
+    context = make_context(sender=sender)
+
+    monkeypatch.setattr(bot, "_get_dependency_versions", lambda: [("pytest", "8.4.0"), ("requests", None)])
+
+    run(bot.cb_version(update, context))
+
+    message = sender.messages[0]["text"]
+    assert "Installed dependency versions (requirements.txt):" in message
+    assert "- pytest: 8.4.0" in message
+    assert "- requests: NOT INSTALLED" in message
+
+
 def test_cb_mqtt_rejects_non_admin():
     bot = Bot(OWNERID=42)
     sender = SpySender()
