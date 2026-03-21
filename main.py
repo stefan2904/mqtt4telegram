@@ -7,6 +7,8 @@ from mqtt import Mqtt
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
+bot = None
+
 
 if __name__ == '__main__':
     OWNERID = int(os.getenv('TELEGRAMOWNERID'))

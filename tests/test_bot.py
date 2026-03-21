@@ -1,14 +1,22 @@
+import asyncio
 from types import SimpleNamespace
 
+import bot as bot_module
 from bot import Bot
+from telegram.constants import ParseMode
 
 
 class SpySender:
     def __init__(self):
         self.messages = []
 
-    def send_message(self, **kwargs):
+    async def send_message(self, **kwargs):
         self.messages.append(kwargs)
+
+
+class DummyFuture:
+    def result(self, timeout=None):
+        return None
 
 
 def make_update(chat_id, text=""):
@@ -20,6 +28,10 @@ def make_update(chat_id, text=""):
 
 def make_context(args=None, sender=None):
     return SimpleNamespace(args=args or [], bot=sender or SpySender())
+
+
+def run(coro):
+    return asyncio.run(coro)
 
 
 def test_isAdmin_true_for_owner_id():
@@ -38,7 +50,7 @@ def test_cb_start_sends_admin_message_for_owner():
     update = make_update(42)
     context = make_context(sender=sender)
 
-    bot.cb_start(update, context)
+    run(bot.cb_start(update, context))
 
     assert len(sender.messages) == 2
     assert "I am alive at" in sender.messages[0]["text"]
@@ -51,7 +63,7 @@ def test_cb_start_sends_only_greeting_for_non_owner():
     update = make_update(7)
     context = make_context(sender=sender)
 
-    bot.cb_start(update, context)
+    run(bot.cb_start(update, context))
 
     assert len(sender.messages) == 1
     assert "I am alive at" in sender.messages[0]["text"]
@@ -63,7 +75,7 @@ def test_cb_mqtt_rejects_non_admin():
     update = make_update(7)
     context = make_context(args=["topic", "payload"], sender=sender)
 
-    result = bot.cb_mqtt(update, context)
+    result = run(bot.cb_mqtt(update, context))
 
     assert result is False
     assert sender.messages[0]["text"] == "ERROR: You are not this bots admin!"
@@ -75,10 +87,11 @@ def test_cb_mqtt_requires_topic_and_payload():
     update = make_update(42)
     context = make_context(args=["only-topic"], sender=sender)
 
-    result = bot.cb_mqtt(update, context)
+    result = run(bot.cb_mqtt(update, context))
 
     assert result is False
     assert "Usage:" in sender.messages[0]["text"]
+    assert sender.messages[0]["parse_mode"] == ParseMode.MARKDOWN
 
 
 def test_cb_mqtt_prefixes_topic_with_telegram_for_admin():
@@ -87,7 +100,7 @@ def test_cb_mqtt_prefixes_topic_with_telegram_for_admin():
     update = make_update(42)
     context = make_context(args=["lights/kitchen", "on"], sender=sender)
 
-    bot.cb_mqtt(update, context)
+    run(bot.cb_mqtt(update, context))
 
     assert sender.messages[0]["text"] == "Send to topic (telegram/lights/kitchen): on"
     assert sender.messages[1]["text"] == "FEATURE NOT YET IMPLEMENTED!"
@@ -99,7 +112,7 @@ def test_cb_mqtt_keeps_existing_telegram_prefix():
     update = make_update(42)
     context = make_context(args=["telegram/lights/kitchen", "on", "now"], sender=sender)
 
-    bot.cb_mqtt(update, context)
+    run(bot.cb_mqtt(update, context))
 
     assert sender.messages[0]["text"] == "Send to topic (telegram/lights/kitchen): on now"
 
@@ -110,18 +123,31 @@ def test_cb_unknown_echoes_unrecognized_message():
     update = make_update(42, text="/whoami")
     context = make_context(sender=sender)
 
-    bot.cb_unknown(update, context)
+    run(bot.cb_unknown(update, context))
 
     assert sender.messages[0]["text"] == "Sorry, I didn't understand that: /whoami"
 
 
-def test_sendMsgToOwner_uses_owner_id_and_html_parse_mode():
+def test_sendMsgToOwner_uses_owner_id_and_html_parse_mode(monkeypatch):
     bot = Bot(OWNERID=42)
     sender = SpySender()
-    bot.updater = SimpleNamespace(bot=sender)
+    bot.application = SimpleNamespace(bot=sender)
+    bot._loop = object()
+
+    def fake_run_coroutine_threadsafe(coro, loop):
+        run(coro)
+        return DummyFuture()
+
+    monkeypatch.setattr(bot_module.asyncio, "run_coroutine_threadsafe", fake_run_coroutine_threadsafe)
+
+    class RunningLoop:
+        def is_running(self):
+            return True
+
+    bot._loop = RunningLoop()
 
     bot.sendMsgToOwner("<b>hello</b>")
 
     assert sender.messages[0]["chat_id"] == 42
     assert sender.messages[0]["text"] == "<b>hello</b>"
-    assert sender.messages[0]["parse_mode"] is not None
+    assert sender.messages[0]["parse_mode"] == ParseMode.HTML
