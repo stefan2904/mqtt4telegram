@@ -6,7 +6,7 @@ BROKERHOST = os.getenv('MQTTHOST')
 BROKERPORT_RAW = os.getenv('MQTTPORT')
 USERNAME = os.getenv('MQTTUSERNAME')
 PASSWORD = os.getenv('MQTTPASSWORD')
-TOPIC = os.getenv('MQTTTOPIC', 'failcloud/#')
+TOPIC = os.getenv('MQTTTOPIC', 'telegram/#')
 
 missing = [
     name for name, value in {
