@@ -87,6 +87,7 @@ if __name__ == '__main__':
     PASSWORD = os.getenv('MQTTPASSWORD')
 
     mqtt = Mqtt(BROKERHOST, BROKERPORT, USERNAME, PASSWORD)
+    bot.set_mqtt_publisher(mqtt.publish)
     mqtt.setCallback(mqtt2telegram)
 
     mqtt2telegram('Status', 'Bot (re-)initialized!')

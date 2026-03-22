@@ -156,10 +156,14 @@ def test_cb_mqtt_prefixes_topic_with_telegram_for_admin():
     update = make_update(42)
     context = make_context(args=["lights/kitchen", "on"], sender=sender)
 
+    published = []
+    bot.set_mqtt_publisher(lambda topic, payload: published.append((topic, payload)))
+
     run(bot.cb_mqtt(update, context))
 
     assert sender.messages[0]["text"] == "Send to topic (telegram/lights/kitchen): on"
-    assert sender.messages[1]["text"] == "FEATURE NOT YET IMPLEMENTED!"
+    assert sender.messages[1]["text"] == "MQTT message published."
+    assert published == [("telegram/lights/kitchen", "on")]
 
 
 def test_cb_mqtt_keeps_existing_telegram_prefix():
@@ -168,9 +172,25 @@ def test_cb_mqtt_keeps_existing_telegram_prefix():
     update = make_update(42)
     context = make_context(args=["telegram/lights/kitchen", "on", "now"], sender=sender)
 
+    published = []
+    bot.set_mqtt_publisher(lambda topic, payload: published.append((topic, payload)))
+
     run(bot.cb_mqtt(update, context))
 
     assert sender.messages[0]["text"] == "Send to topic (telegram/lights/kitchen): on now"
+    assert published == [("telegram/lights/kitchen", "on now")]
+
+
+def test_cb_mqtt_fails_when_publisher_is_missing():
+    bot = Bot(OWNERID=42)
+    sender = SpySender()
+    update = make_update(42)
+    context = make_context(args=["lights/kitchen", "on"], sender=sender)
+
+    result = run(bot.cb_mqtt(update, context))
+
+    assert result is False
+    assert sender.messages[1]["text"] == "ERROR: MQTT publisher is not configured."
 
 
 def test_cb_unknown_echoes_unrecognized_message():

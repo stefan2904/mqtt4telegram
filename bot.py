@@ -17,6 +17,7 @@ class Bot():
         self.started = False
         self.hostname = socket.gethostname()
         self.application = None
+        self._mqtt_publisher = None
         self._thread = None
         self._loop = None
         self._ready = threading.Event()
@@ -73,7 +74,7 @@ class Bot():
         lines = [
             "Available commands:",
             "/start - Check bot status and your chat id.",
-            "/mqtt <topic> <payload> - Publish payload to an MQTT topic (not yet implemented).",
+            "/mqtt <topic> <payload> - Publish payload to an MQTT topic.",
             "/help - Show this help message.",
             "/version - Show installed versions for dependencies in requirements.txt.",
         ]
@@ -116,7 +117,24 @@ class Bot():
         await context.bot.send_message(chat_id=update.effective_chat.id,
                                        text="Send to topic ({}): {}".format(topic, payload))
 
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="FEATURE NOT YET IMPLEMENTED!")
+        if self._mqtt_publisher is None:
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text="ERROR: MQTT publisher is not configured.")
+            return False
+
+        try:
+            self._mqtt_publisher(topic, payload)
+        except Exception as e:
+            logging.exception('Failed to publish MQTT message: %s', e)
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text="ERROR: MQTT publish failed: {}".format(str(e)))
+            return False
+
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text="MQTT message published.")
+
+    def set_mqtt_publisher(self, publisher):
+        self._mqtt_publisher = publisher
 
     async def cb_unknown(self, update, context):
         await context.bot.send_message(chat_id=update.effective_chat.id,
