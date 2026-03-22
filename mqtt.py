@@ -4,11 +4,13 @@ import paho.mqtt.client as mqtt
 
 
 class Mqtt():
-    def __init__(self, host, port, username, password, topics=['failcloud/#']):
+    def __init__(self, host, port, username, password, topics=None, client_id=None):
         self.host = host
         self.username = username
-        self.topics = topics
-        self.client = mqtt.Client(client_id='mqtt4telegram.' + self.username)
+        self.topics = ['failcloud/#'] if topics is None else topics
+        if client_id is None:
+            client_id = 'mqtt4telegram.' + self.username
+        self.client = mqtt.Client(client_id=client_id)
         self.client.enable_logger()
 
         self.client.on_connect = lambda client, userdata, flags, rc: self.on_connect(client, userdata, flags, rc)
@@ -29,7 +31,8 @@ class Mqtt():
             self.onMessageCallback('MQTT Status', 'Connected to Broker at {} as {}!'.format(self.host, self.username))
         if rc == 5:
             logging.error("Unauthenticated")
-            self.onMessageCallback('MQTT Status', 'Unauthenticated')
+            if self.onMessageCallback is not None:
+                self.onMessageCallback('MQTT Status', 'Unauthenticated')
             return
 
         for topic in self.topics:
