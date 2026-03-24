@@ -19,6 +19,7 @@ class Bot():
         self.application = None
         self._mqtt_publisher = None
         self._owner_message_thread_id = None
+        self._owner_thread_lock = threading.Lock()
         self._thread = None
         self._loop = None
         self._ready = threading.Event()
@@ -48,7 +49,12 @@ class Bot():
     def _remember_owner_thread(self, update):
         message_thread_id = self._message_thread_id(update)
         if message_thread_id is not None:
-            self._owner_message_thread_id = message_thread_id
+            with self._owner_thread_lock:
+                self._owner_message_thread_id = message_thread_id
+
+    def _get_owner_thread_id(self):
+        with self._owner_thread_lock:
+            return self._owner_message_thread_id
 
     def _reply_kwargs(self, update, **kwargs):
         message_thread_id = self._message_thread_id(update)
@@ -274,12 +280,15 @@ class Bot():
         Send owner notifications into a forum topic when a topic id is known.
         Uses Telegram Bot API `message_thread_id` for topic-aware delivery:
         https://core.telegram.org/bots/api#sendmessage
+
+        If `message_thread_id` is provided, it is used for this message.
+        If omitted, the last remembered owner thread id is used (if any).
         """
         if self.application is None or self._loop is None or not self._loop.is_running():
             logging.warning('sendMsgToOwner called before Telegram bot was started.')
             return
 
-        resolved_message_thread_id = self._owner_message_thread_id if message_thread_id is None else message_thread_id
+        resolved_message_thread_id = self._get_owner_thread_id() if message_thread_id is None else message_thread_id
         send_kwargs = {
             'chat_id': self.OWNERID,
             'text': msg,

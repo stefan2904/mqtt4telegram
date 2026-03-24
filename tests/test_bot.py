@@ -101,6 +101,17 @@ def test_cb_help_lists_available_commands_for_admin():
     assert "core.telegram.org/bots/api#sendmessage" in message
 
 
+def test_cb_help_replies_to_same_message_thread_when_available():
+    bot = Bot(OWNERID=42)
+    sender = SpySender()
+    update = make_update(42, message_thread_id=77)
+    context = make_context(sender=sender)
+
+    run(bot.cb_help(update, context))
+
+    assert sender.messages[0]["message_thread_id"] == 77
+
+
 def test_cb_version_rejects_non_admin():
     bot = Bot(OWNERID=42)
     sender = SpySender()
