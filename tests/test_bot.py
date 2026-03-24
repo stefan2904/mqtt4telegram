@@ -19,10 +19,12 @@ class DummyFuture:
         return None
 
 
-def make_update(chat_id, text=""):
+def make_update(chat_id, text="", message_thread_id=None):
+    message = SimpleNamespace(text=text, message_thread_id=message_thread_id)
     return SimpleNamespace(
         effective_chat=SimpleNamespace(id=chat_id),
-        message=SimpleNamespace(text=text),
+        effective_message=message,
+        message=message,
     )
 
 
@@ -95,6 +97,8 @@ def test_cb_help_lists_available_commands_for_admin():
     assert "/mqtt" in message
     assert "/help" in message
     assert "/version" in message
+    assert "message_thread_id" in message
+    assert "core.telegram.org/bots/api#sendmessage" in message
 
 
 def test_cb_version_rejects_non_admin():
@@ -166,6 +170,22 @@ def test_cb_mqtt_prefixes_topic_with_telegram_for_admin():
     assert published == [("telegram/lights/kitchen", "on")]
 
 
+def test_cb_mqtt_replies_to_same_message_thread_when_available():
+    bot = Bot(OWNERID=42)
+    sender = SpySender()
+    update = make_update(42, message_thread_id=99)
+    context = make_context(args=["lights/kitchen", "on"], sender=sender)
+
+    published = []
+    bot.set_mqtt_publisher(lambda topic, payload: published.append((topic, payload)))
+
+    run(bot.cb_mqtt(update, context))
+
+    assert sender.messages[0]["message_thread_id"] == 99
+    assert sender.messages[1]["message_thread_id"] == 99
+    assert published == [("telegram/lights/kitchen", "on")]
+
+
 def test_cb_mqtt_keeps_existing_telegram_prefix():
     bot = Bot(OWNERID=42)
     sender = SpySender()
@@ -227,3 +247,26 @@ def test_sendMsgToOwner_uses_owner_id_and_html_parse_mode(monkeypatch):
     assert sender.messages[0]["chat_id"] == 42
     assert sender.messages[0]["text"] == "<b>hello</b>"
     assert sender.messages[0]["parse_mode"] == ParseMode.HTML
+
+
+def test_sendMsgToOwner_uses_remembered_owner_thread_id(monkeypatch):
+    bot = Bot(OWNERID=42)
+    sender = SpySender()
+    bot.application = SimpleNamespace(bot=sender)
+
+    def fake_run_coroutine_threadsafe(coro, loop):
+        run(coro)
+        return DummyFuture()
+
+    monkeypatch.setattr(bot_module.asyncio, "run_coroutine_threadsafe", fake_run_coroutine_threadsafe)
+
+    class RunningLoop:
+        def is_running(self):
+            return True
+
+    bot._loop = RunningLoop()
+    bot._remember_owner_thread(make_update(42, message_thread_id=123))
+
+    bot.sendMsgToOwner("<b>hello</b>")
+
+    assert sender.messages[0]["message_thread_id"] == 123

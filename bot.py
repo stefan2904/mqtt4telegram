@@ -18,6 +18,7 @@ class Bot():
         self.hostname = socket.gethostname()
         self.application = None
         self._mqtt_publisher = None
+        self._owner_message_thread_id = None
         self._thread = None
         self._loop = None
         self._ready = threading.Event()
@@ -31,11 +32,29 @@ class Bot():
 
     async def _ensure_admin(self, update, context):
         if self.isAdmin(update.effective_chat.id):
+            self._remember_owner_thread(update)
             return True
 
         await context.bot.send_message(chat_id=update.effective_chat.id,
                                        text="ERROR: You are not this bots admin!")
         return False
+
+    def _message_thread_id(self, update):
+        message = getattr(update, 'effective_message', None)
+        if message is None:
+            message = getattr(update, 'message', None)
+        return getattr(message, 'message_thread_id', None)
+
+    def _remember_owner_thread(self, update):
+        message_thread_id = self._message_thread_id(update)
+        if message_thread_id is not None:
+            self._owner_message_thread_id = message_thread_id
+
+    def _reply_kwargs(self, update, **kwargs):
+        message_thread_id = self._message_thread_id(update)
+        if message_thread_id is not None:
+            kwargs['message_thread_id'] = message_thread_id
+        return kwargs
 
     def _get_dependency_versions(self):
         requirements_path = Path(__file__).resolve().with_name('requirements.txt')
@@ -61,11 +80,18 @@ class Bot():
         return dependencies
 
     async def cb_start(self, update, context):
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text="I am alive at {}! And you are, {}!?".format(self.hostname,
-                                                                                          str(update.effective_chat.id)))
+        await context.bot.send_message(**self._reply_kwargs(
+            update,
+            chat_id=update.effective_chat.id,
+            text="I am alive at {}! And you are, {}!?".format(self.hostname, str(update.effective_chat.id)),
+        ))
         if self.isAdmin(update.effective_chat.id):
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="You are this bots admin!")
+            self._remember_owner_thread(update)
+            await context.bot.send_message(**self._reply_kwargs(
+                update,
+                chat_id=update.effective_chat.id,
+                text="You are this bots admin!",
+            ))
 
     async def cb_help(self, update, context):
         if not await self._ensure_admin(update, context):
@@ -77,8 +103,12 @@ class Bot():
             "/mqtt <topic> <payload> - Publish payload to an MQTT topic.",
             "/help - Show this help message.",
             "/version - Show installed versions for dependencies in requirements.txt.",
+            "",
+            "In Telegram forum/group topics, bot replies and owner notifications",
+            "use message_thread_id when available.",
+            "Telegram Bot API: https://core.telegram.org/bots/api#sendmessage",
         ]
-        await context.bot.send_message(chat_id=update.effective_chat.id, text='\n'.join(lines))
+        await context.bot.send_message(**self._reply_kwargs(update, chat_id=update.effective_chat.id, text='\n'.join(lines)))
 
     async def cb_version(self, update, context):
         if not await self._ensure_admin(update, context):
@@ -86,59 +116,83 @@ class Bot():
 
         dependencies = self._get_dependency_versions()
         if dependencies is None:
-            await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text='ERROR: requirements.txt not found.')
+            await context.bot.send_message(**self._reply_kwargs(
+                update,
+                chat_id=update.effective_chat.id,
+                text='ERROR: requirements.txt not found.',
+            ))
             return False
 
         if len(dependencies) == 0:
-            await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text='No dependencies found in requirements.txt.')
+            await context.bot.send_message(**self._reply_kwargs(
+                update,
+                chat_id=update.effective_chat.id,
+                text='No dependencies found in requirements.txt.',
+            ))
             return False
 
         lines = ['Installed dependency versions (requirements.txt):']
         for package_name, version in dependencies:
             lines.append('- {}: {}'.format(package_name, version if version is not None else 'NOT INSTALLED'))
 
-        await context.bot.send_message(chat_id=update.effective_chat.id, text='\n'.join(lines))
+        await context.bot.send_message(**self._reply_kwargs(update, chat_id=update.effective_chat.id, text='\n'.join(lines)))
 
     async def cb_mqtt(self, update, context):
         if not await self._ensure_admin(update, context):
             return False
 
         if len(context.args) < 2:
-            await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text="*Usage:* _/mqtt <topic> <payload>_",
-                                           parse_mode=ParseMode.MARKDOWN)
+            await context.bot.send_message(**self._reply_kwargs(
+                update,
+                chat_id=update.effective_chat.id,
+                text="*Usage:* _/mqtt <topic> <payload>_",
+                parse_mode=ParseMode.MARKDOWN,
+            ))
             return False
 
         topic = context.args[0] if context.args[0].split('/')[0] == 'telegram' \
             else 'telegram/{}'.format(context.args[0])
         payload = ' '.join(context.args[1:])
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text="Send to topic ({}): {}".format(topic, payload))
+        await context.bot.send_message(**self._reply_kwargs(
+            update,
+            chat_id=update.effective_chat.id,
+            text="Send to topic ({}): {}".format(topic, payload),
+        ))
 
         if self._mqtt_publisher is None:
-            await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text="ERROR: MQTT publisher is not configured.")
+            await context.bot.send_message(**self._reply_kwargs(
+                update,
+                chat_id=update.effective_chat.id,
+                text="ERROR: MQTT publisher is not configured.",
+            ))
             return False
 
         try:
             self._mqtt_publisher(topic, payload)
         except Exception as e:
             logging.exception('Failed to publish MQTT message: %s', e)
-            await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text="ERROR: MQTT publish failed: {}".format(str(e)))
+            await context.bot.send_message(**self._reply_kwargs(
+                update,
+                chat_id=update.effective_chat.id,
+                text="ERROR: MQTT publish failed: {}".format(str(e)),
+            ))
             return False
 
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text="MQTT message published.")
+        await context.bot.send_message(**self._reply_kwargs(
+            update,
+            chat_id=update.effective_chat.id,
+            text="MQTT message published.",
+        ))
 
     def set_mqtt_publisher(self, publisher):
         self._mqtt_publisher = publisher
 
     async def cb_unknown(self, update, context):
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text="Sorry, I didn't understand that: " + update.message.text)
+        await context.bot.send_message(**self._reply_kwargs(
+            update,
+            chat_id=update.effective_chat.id,
+            text="Sorry, I didn't understand that: " + update.message.text,
+        ))
 
     def init(self, TOKEN):
         self.application = ApplicationBuilder().token(TOKEN).build()
@@ -215,13 +269,27 @@ class Bot():
         if self._thread is not None:
             self._thread.join()
 
-    def sendMsgToOwner(self, msg):
+    def sendMsgToOwner(self, msg, message_thread_id=None):
+        """
+        Send owner notifications into a forum topic when a topic id is known.
+        Uses Telegram Bot API `message_thread_id` for topic-aware delivery:
+        https://core.telegram.org/bots/api#sendmessage
+        """
         if self.application is None or self._loop is None or not self._loop.is_running():
             logging.warning('sendMsgToOwner called before Telegram bot was started.')
             return
 
+        resolved_message_thread_id = self._owner_message_thread_id if message_thread_id is None else message_thread_id
+        send_kwargs = {
+            'chat_id': self.OWNERID,
+            'text': msg,
+            'parse_mode': ParseMode.HTML,
+        }
+        if resolved_message_thread_id is not None:
+            send_kwargs['message_thread_id'] = resolved_message_thread_id
+
         future = asyncio.run_coroutine_threadsafe(
-            self.application.bot.send_message(chat_id=self.OWNERID, text=msg, parse_mode=ParseMode.HTML),
+            self.application.bot.send_message(**send_kwargs),
             self._loop,
         )
         future.result(timeout=10)
