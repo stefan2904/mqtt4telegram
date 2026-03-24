@@ -194,10 +194,12 @@ class Bot():
         self._mqtt_publisher = publisher
 
     async def cb_unknown(self, update, context):
+        message = update.effective_message
+        user_text = message.text or getattr(message, "caption", None) or "<non-text message>"
         await context.bot.send_message(**self._reply_kwargs(
             update,
             chat_id=update.effective_chat.id,
-            text="Sorry, I didn't understand that: " + update.message.text,
+            text="Sorry, I didn't understand that: " + user_text,
         ))
 
     def init(self, TOKEN):
